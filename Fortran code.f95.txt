@@ -1,0 +1,226 @@
+
+
+parameter(nd=20,nmp=500000)
+         common em(10000),v(10000),anu(nmp),th(nmp)
+         dimension theta(0:nmp),pmangle(nmp),akm(nmp),akp(nmp)
+         dimension amach(nmp),amu(nmp),slrp(nmp),sllp(0:nmp)
+         dimension slrl(nmp),slll(nmp),x(0:nmp),y(0:nmp)
+         
+         ist(k,nd)=((k-1)*(2*nd-k+2)+2)/2
+         iend(k,nd)=k*(2*nd-k+1)/2
+         open(10,file='noz-dat')
+         open(11,file='wall-dat')
+         
+         em(1)=1.0
+         delm=9.0/10000.0
+         r1=45.0/atan(1.0)
+!        table of p-m angle values
+         do i=2,10000
+         em(i)=em(i-1)+delm
+         enddo
+         do i=1,10000
+         v(i)=pval(em(i))
+         enddo
+!        table ends
+
+!         Algorith starts
+         emach=3.0
+         thmax=0.5*pval(emach)*r1   
+         th(1) = thmax-int(thmax)
+         dth=(thmax-th(1))/(nd-2)
+         do i=2,nd-1
+         th(i)=th(i-1)+dth
+         enddo
+
+         do i=1,nd-1
+         theta(i)=th(i)
+         pmangle(i)=theta(i)
+         akm(i)=2.*theta(i)
+         akp(i)=0.0
+         enddo
+         akp(nd)=akp(nd-1)
+         do k=2,nd-1
+         is=ist(k,nd)
+         theta(is)=0.0
+         enddo
+                  
+         do k=2,nd-1
+         is=ist(k,nd)
+         ie=iend(k,nd)
+         do i=is,ie-1
+         isp=ist(k-1,nd)+i-is+1
+         akm(i)=akm(isp)
+         enddo
+         enddo
+         
+         do k=2,nd-1
+         is=ist(k,nd)
+         ie=iend(k,nd)
+         isp=ist(k-1,nd)+1
+         akp(is)=-akm(isp)
+         do i=is+1,ie
+         akp(i)=-akm(isp)
+         enddo
+         enddo
+          
+!        fixing the conditions on the wall               
+         do k=1,nd-1
+         ie=iend(k,nd)
+         theta(ie)=theta(ie-1)
+         pmangle(ie)=pmangle(ie-1)
+         akp(ie)=akp(ie-1)
+         akm(ie)=akm(ie-1)
+         enddo   
+         
+!        point-wise slope         
+         do k=1,nd-1
+         is=ist(k,nd)
+         ie=iend(k,nd)
+         do i=is,ie
+         theta(i)=(akp(i)+akm(i))*0.5
+         pmangle(i)=(-akp(i)+akm(i))*0.5
+         amach(i)=pinv(pmangle(i)/r1)
+         amu(i)=asin(1./amach(i))
+         slrp(i)=tan(0.5*(theta(i)/r1+amu(i)))
+         sllp(i)=tan(0.5*(theta(i)/r1-amu(i)))       
+         enddo
+         enddo
+   
+!        slopes of line segments calculated below   
+         do k=1,nd-1
+         is=ist(k,nd)
+         ie=iend(k,nd)
+         do i=is,ie-2
+         a=slrp(i)
+         b=slrp(i+1)
+         slrl(i)=(a+b)/(1.0-a*b)
+         enddo
+         slrl(ie-1)=slrl(ie-2)  
+         enddo
+         
+         do k=1,nd-1
+         is=ist(k,nd)
+         ie=iend(k,nd)
+         do i=is,ie
+         isp=ist(k-1,nd)+i-is+1
+         if(isp.le.0) then 
+         isp=0
+         b=sllp(i)
+         else
+         b=sllp(isp)
+         endif
+         a=sllp(i)               
+         slll(i)=(a+b)/(1.0-a*b)
+         enddo
+         enddo
+         
+                  
+         do k=1,nd-1
+         is=ist(k,nd)
+         ie=iend(k,nd)
+         do i=is,ie
+!         write(*,*)i,slrl(i),slll(i)
+         enddo
+         enddo
+         
+
+
+         theta(0)=theta(iend(1,nd))
+         write(*,*)'t(0)=',theta(0)
+       
+         do k=1,nd-1
+         is=ist(k,nd)
+         ie=iend(k,nd)
+         isp=ist(k-1,nd)+ie-is+1
+         thetav=(theta(ie)+theta(isp))*0.5/r1
+         slll(ie)=tan(thetav)
+         
+                  slrl(ie-1)=slrl(ie-2) 
+         write(*,*)slll(ie),theta(ie),theta(isp),ie,isp
+         enddo
+         
+         
+         
+         
+!        co-ordinates of points calculated here  
+
+          x(0)=0.0
+          y(0)=0.2
+          write(10,*)x(0),y(0)
+         do k=1,nd-1
+         is=ist(k,nd)
+         y(is)=0.0
+         x(is)=-y(0)/slll(is)
+         ie=iend(k,nd)
+         write(*,*)x(is),y(is)
+         do i=is,ie-1
+         isp=ist(k-1,nd)+i-is+2
+         if(isp.le.0) isp=0        
+         x(i+1)=(y(i)-y(isp)-slrl(i)*x(i)+slll(i+1)*x(isp))/(slll(i+1)-slrl(i))
+         y(i+1)=y(i)+(x(i+1)-x(i))*slrl(i)
+         enddo
+         enddo
+         
+         
+         
+         
+         
+
+         do k=1,nd-2
+         is=ist(k,nd)
+         ie=iend(k,nd)
+         do i=is,ie
+          write(10,*)x(i),y(i)
+          enddo
+          write(10,*)
+          enddo
+          
+         do k=1,nd-2
+         is=ist(k,nd)
+         ie=iend(k,nd)
+         do i=is,ie
+         isp=ist(k-1,nd)+i-is+1
+         if(isp.le.0) isp=0 
+          write(10,*)x(i),y(i)
+          write(10,*)x(isp),y(isp)
+          write(10,*)
+          enddo
+          write(11,*) x(ie),y(ie)
+          enddo
+          
+
+         
+         
+         
+         stop
+         end
+         
+         
+
+         
+         
+         
+         
+         
+         function pinv(anu)
+         common em(10000),v(10000)      
+         vs=anu
+         i=0
+10       i=i+1
+         if((v(i).lt.vs).and.(i.le.10000)) go to 10
+         em1=em(i-1)
+         em2=em(i)
+         fact=(vs-v(i-1))/(v(i)-v(i-1))
+         ems=em1*(1.-fact)+em2*fact
+         pinv=ems
+         return
+         end
+         
+         function pval(em1)
+         gamma=1.4
+         beta=sqrt((gamma+1)/(gamma-1))       
+         x=sqrt(em1*em1-1.0)
+         pval=beta*atan(x/beta)-atan(x)
+         return
+         end
+         
